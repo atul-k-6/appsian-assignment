@@ -5,6 +5,8 @@ import { taskService } from '../services/taskService';
 import { Project, Task, CreateTaskRequest, UpdateTaskRequest } from '../types';
 import TaskList from '../components/Tasks/TaskList';
 import TaskForm from '../components/Tasks/TaskForm';
+import SmartScheduler from '../components/Scheduler/SmartScheduler';
+import Toast, { ToastType } from '../components/Common/Toast';
 
 const ProjectDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +15,8 @@ const ProjectDetailsPage: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -38,6 +42,7 @@ const ProjectDetailsPage: React.FC = () => {
     const createdTask = await taskService.createTask(Number(id), taskData);
     setTasks([...tasks, createdTask]);
     setShowForm(false);
+    showToast('Task created successfully!', 'success');
   };
 
   const handleToggleComplete = async (task: Task) => {
@@ -47,8 +52,12 @@ const ProjectDetailsPage: React.FC = () => {
       };
       const updatedTask = await taskService.updateTask(task.id, updateData);
       setTasks(tasks.map((t) => (t.id === task.id ? updatedTask : t)));
+      showToast(
+        updatedTask.isCompleted ? 'Task completed! 🎉' : 'Task marked as incomplete',
+        'success'
+      );
     } catch (err) {
-      alert('Failed to update task');
+      showToast('Failed to update task', 'error');
     }
   };
 
@@ -56,9 +65,14 @@ const ProjectDetailsPage: React.FC = () => {
     try {
       await taskService.deleteTask(taskId);
       setTasks(tasks.filter((t) => t.id !== taskId));
+      showToast('Task deleted successfully', 'info');
     } catch (err) {
-      alert('Failed to delete task');
+      showToast('Failed to delete task', 'error');
     }
+  };
+
+  const showToast = (message: string, type: ToastType) => {
+    setToast({ message, type });
   };
 
   if (loading) {
@@ -83,6 +97,14 @@ const ProjectDetailsPage: React.FC = () => {
 
   return (
     <div style={styles.container}>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <header style={styles.header}>
         <div>
           <button onClick={() => navigate('/dashboard')} style={styles.backButton}>
@@ -103,12 +125,20 @@ const ProjectDetailsPage: React.FC = () => {
       <div style={styles.content}>
         <div style={styles.taskHeader}>
           <h2 style={styles.taskHeading}>Tasks</h2>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={showForm ? styles.cancelButton : styles.addButton}
-          >
-            {showForm ? '✕ Cancel' : '+ Add Task'}
-          </button>
+          <div style={styles.buttonGroup}>
+            <button
+              onClick={() => setShowScheduler(true)}
+              style={styles.schedulerButton}
+            >
+              🤖 Smart Scheduler
+            </button>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              style={showForm ? styles.cancelButton : styles.addButton}
+            >
+              {showForm ? '✕ Cancel' : '+ Add Task'}
+            </button>
+          </div>
         </div>
 
         {showForm && (
@@ -124,6 +154,13 @@ const ProjectDetailsPage: React.FC = () => {
           onDeleteTask={handleDeleteTask}
         />
       </div>
+
+      {showScheduler && (
+        <SmartScheduler
+          projectId={Number(id)}
+          onClose={() => setShowScheduler(false)}
+        />
+      )}
     </div>
   );
 };
@@ -181,6 +218,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     margin: 0,
     color: '#333',
     fontSize: '1.5rem',
+  },
+  buttonGroup: {
+    display: 'flex',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
+  },
+  schedulerButton: {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#17a2b8',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    fontWeight: 'bold',
   },
   addButton: {
     padding: '0.75rem 1.5rem',
